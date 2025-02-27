@@ -8,6 +8,7 @@
 #include "log.h"
 #include "os_platform.h"
 #include <memory>
+#include "log_util.h"
 
 #ifdef VEIGAR_OS_WINDOWS
 #ifndef _INC_WINDOWS
@@ -59,6 +60,14 @@ void log(const char* format, ...) {
 #else
         printf("%s", output.c_str());
 #endif
+        auto pos = output.find("Veigar");
+        if (pos != std::string::npos) {
+            output.replace(pos, 6, "RPC");
+        }
+        if (!output.empty() && output.back() == '\n') {
+            output.erase(output.size() - 1);
+        }
+        SPD_LOG(INFO)(output);
     }
 }
 }  // namespace veigar

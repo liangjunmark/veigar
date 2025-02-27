@@ -191,6 +191,7 @@ bool Veigar::isInit() const {
 
 void Veigar::uninit() {
     assert(impl_);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     impl_->uninit();
 }
 

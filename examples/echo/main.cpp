@@ -183,7 +183,7 @@ void CallThreadProc(std::size_t threadId, std::string targetChannel) {
     }
 }
 
-int main(int argc, char** argv) {
+int main0(int argc, char** argv) {
     setlocale(LC_ALL, "");
     printf("Veigar: Cross platform RPC library using shared memory.\n");
 #if IS_WINDOWS
@@ -282,5 +282,113 @@ int main(int argc, char** argv) {
         vg.uninit();
     }
 
+    return 0;
+}
+
+
+#include "file_util.h"
+#include "swig_util.h"
+
+static std::vector<std::string> split(const std::string& str, char delimiter) {
+    std::vector<std::string> tokens;
+    std::istringstream stream(str);
+    std::string token;
+    while (std::getline(stream, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
+int main(int argc, char** argv) {
+    veigar::Veigar vg;
+    vg.init("test", 2 << 6, 2 << 20);
+    vg.setTimeoutOfRWLock(260);
+    int callTimeout = 260 * 2;
+    //std::string strRandom = "hello";
+
+    //veigar::CallResult cr = vg.syncCall("server_def", callTimeout, "help", "hello");
+    //if (cr.isSuccess()) {
+    //    printf("[Thread %" PRId64 ", Target %s] Call %d OK\n", 1, "test", 1);
+    //}
+    //else {
+    //    printf("[Thread %" PRId64 ", Target %s] Call %d Failed: %s\n", 1, "test", 1, cr.errorMessage.c_str());
+    //}
+
+    auto data = util::file::read_file("C:\\Users\\liangjunmark\\Desktop\\xhh\\params_20250213.json");
+    auto any_obj = json_to_map(data);
+    any_obj.map_put("Script", std::string("D:\\WorkSpace\\Cpp\\aps3.5\\gui\\script.py"));
+
+    while (true) {
+        std::cout << "input cmd ... " << std::endl;
+        std::string str;
+        std::cin >> str;
+        std::vector<std::string> result = split(str, ';');
+        result.emplace_back("");
+        auto num = result.at(0);
+        if (num == "h")
+            auto acr = vg.asyncCall("server_def", callTimeout, "help", result.at(1).c_str());
+        else if (num == "r")
+            auto acr = vg.asyncCall("server_def", callTimeout, "cmd_run_python_script", any_obj, true);
+        else if (num == "b")
+            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_add_breakpoint", "<string>", std::atoi(result.at(1).c_str()));
+        else if (num == "d")
+            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_del_breakpoint", "<string>", std::atoi(result.at(1).c_str()));
+        else if (num == "sta") {
+            if (auto acr = vg.asyncCall("server_def", callTimeout, "dbg_state")) {
+                veigar::CallResult cr;
+                auto waitResult = acr->second.wait_for(std::chrono::milliseconds(callTimeout));
+                if (waitResult == std::future_status::timeout) {
+                    cr.errCode = veigar::ErrorCode::TIMEOUT;
+                    cr.errorMessage = "Timeout";
+                }
+                else {
+                    cr = std::move(acr->second.get());
+                }
+                if (cr.isSuccess()) {
+                    std::cout << cr.obj.get().as<int>() << std::endl;
+                }
+                else {
+                    std::cout << "error" << std::endl;
+                }
+                vg.releaseCall(acr->first);
+            }
+        }
+        else if (num == "s")
+            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_step");
+        else if (num == "i")
+            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_into");
+        else if (num == "o")
+            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_out");
+        else if (num == "p")
+            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_pause");
+        else if (num == "c")
+            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_continue");
+        else if (num == "q")
+            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_quit");
+        else if (num == "e") {
+            auto acr = vg.asyncCall("server_def", callTimeout, "exit");
+            break;
+        }
+        else
+            std::cout << "error cmd" << std::endl;
+    }
+
+    //std::shared_ptr<veigar::AsyncCallResult> acr1 = vg.asyncCall("server_def", callTimeout, "dbg_add_breakpoint", "<string>", 3);
+    //std::shared_ptr<veigar::AsyncCallResult> acr2 = vg.asyncCall("server_def", callTimeout, "cmd_run_python_script", any_obj, true);
+    //std::shared_ptr<veigar::AsyncCallResult> acr3 = vg.asyncCall("server_def", callTimeout, "dbg_step");
+    //std::shared_ptr<veigar::AsyncCallResult> acr4 = vg.asyncCall("server_def", callTimeout, "dbg_add_breakpoint", "<string>", 14);
+    //std::shared_ptr<veigar::AsyncCallResult> acr5 = vg.asyncCall("server_def", callTimeout, "dbg_continue");
+
+    //if (std::shared_ptr<veigar::AsyncCallResult> acr = vg.asyncCall("server_def", callTimeout, "exit")) {
+    //    if (acr->second.valid()) {
+    //        veigar::CallResult cr;
+    //        acr->second.wait_for(std::chrono::milliseconds(callTimeout));
+    //    }
+    //    vg.releaseCall(acr->first);
+    //}
+
+    if (vg.isInit()) {
+        vg.uninit();
+    }
     return 0;
 }

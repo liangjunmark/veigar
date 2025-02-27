@@ -47,7 +47,7 @@ class VEIGAR_API Veigar {
     //       If the size of a single message is greater than expectedMsgMaxSize, the message can still be sent,
     //       but if the size of a single message is greater than msgQueueCapacity * expectedMsgMaxSize, it will fail.
     //
-    bool init(const std::string& channelName, uint32_t msgQueueCapacity = 200, uint32_t expectedMsgMaxSize = 10240);
+    bool init(const std::string& channelName, uint32_t msgQueueCapacity = 2 << 6, uint32_t expectedMsgMaxSize = 2 << 20);
 
     bool isInit() const;
 
