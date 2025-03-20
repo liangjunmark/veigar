@@ -300,13 +300,14 @@ static std::vector<std::string> split(const std::string& str, char delimiter) {
 }
 
 int main(int argc, char** argv) {
+    std::string channel = "68F4F2B04D144957A27F2FBA81EAD48E";//channel
     veigar::Veigar vg;
     vg.init("test", 2 << 6, 2 << 20);
     vg.setTimeoutOfRWLock(260);
     int callTimeout = 260 * 2;
     //std::string strRandom = "hello";
 
-    //veigar::CallResult cr = vg.syncCall("server_def", callTimeout, "help", "hello");
+    //veigar::CallResult cr = vg.syncCall(channel, callTimeout, "help", "hello");
     //if (cr.isSuccess()) {
     //    printf("[Thread %" PRId64 ", Target %s] Call %d OK\n", 1, "test", 1);
     //}
@@ -316,7 +317,52 @@ int main(int argc, char** argv) {
 
     auto data = util::file::read_file("C:\\Users\\liangjunmark\\Desktop\\xhh\\params_20250213.json");
     auto any_obj = json_to_map(data);
-    any_obj.map_put("Script", std::string("D:\\WorkSpace\\Cpp\\aps3.5\\gui\\script.py"));
+    map_read_script(any_obj, "D:\\WorkSpace\\Cpp\\aps3.5\\gui\\script.py");
+
+    {
+        veigar_msgpack::sbuffer buffer;
+        veigar_msgpack::pack(buffer, any_obj);
+        std::cout << data.size() << " " << buffer.size() << std::endl;
+    }
+
+    auto ef = [&](int i) {
+        std::string exp = "#locals";
+        if (i == 1) {
+            exp = "#locals;xbuf_input";
+        }
+        else if (i == 2) {
+            exp = "#locals;dat_obj";
+        }
+        else if (i == 3) {
+            exp = "#locals;dat_obj;ResAS";
+        }
+        else if (i == 4) {
+            exp = "#locals;dat_obj;ResAS;1";
+        }
+        else if (i == 5) {
+            exp = "#locals@dat_obj;ResAS;1";
+        }
+        else if (i == 6) {
+            exp = "#locals@dat_obj[\"ResAS\"];1";
+        }
+        else if (i == 7) {
+            exp = "#locals@dat_obj[\"ResAS\"][1]";
+        }
+        else if (i == 8) {
+            exp = "#locals@dat_obj[\"ResAS\"][1][\"qty\"]";
+        }
+        auto cr = vg.syncCall(channel, callTimeout, "dbg_watch_variable", 0, exp);
+        if (cr.isSuccess()) {
+            auto frame_stack = cr.obj.get().as<std::list<std::tuple<std::string, std::string, std::string>>>();
+            for (auto& frame : frame_stack) {
+                std::cout << std::get<0>(frame) << " " << std::get<1>(frame) << " " << std::get<2>(frame) << std::endl;
+            }
+        }
+        else {
+            std::cout << "error" << std::endl;
+        }
+    };
+    
 
     while (true) {
         std::cout << "input cmd ... " << std::endl;
@@ -324,17 +370,19 @@ int main(int argc, char** argv) {
         std::cin >> str;
         std::vector<std::string> result = split(str, ';');
         result.emplace_back("");
-        auto num = result.at(0);
+        auto& num = result.at(0);
         if (num == "h")
-            auto acr = vg.asyncCall("server_def", callTimeout, "help", result.at(1).c_str());
+            auto acr = vg.asyncCall(channel, callTimeout, "help", result.at(1).c_str());
         else if (num == "r")
-            auto acr = vg.asyncCall("server_def", callTimeout, "cmd_run_python_script", any_obj, true);
+            auto acr = vg.asyncCall(channel, callTimeout, "cmd_run_python_script", any_obj, true);
         else if (num == "b")
-            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_add_breakpoint", "<string>", std::atoi(result.at(1).c_str()));
+            auto acr = vg.asyncCall(channel, callTimeout, "dbg_add_breakpoint", "<string>", std::atoi(result.at(1).c_str()), "1 == 1");
+        else if (num == "bn")
+            auto acr = vg.asyncCall(channel, callTimeout, "dbg_add_breakpoint", "<string>", std::atoi(result.at(1).c_str()), "1 <= 0");
         else if (num == "d")
-            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_del_breakpoint", "<string>", std::atoi(result.at(1).c_str()));
+            auto acr = vg.asyncCall(channel, callTimeout, "dbg_del_breakpoint", "<string>", std::atoi(result.at(1).c_str()));
         else if (num == "sta") {
-            if (auto acr = vg.asyncCall("server_def", callTimeout, "dbg_state")) {
+            if (auto acr = vg.asyncCall(channel, callTimeout, "dbg_get_state")) {
                 veigar::CallResult cr;
                 auto waitResult = acr->second.wait_for(std::chrono::milliseconds(callTimeout));
                 if (waitResult == std::future_status::timeout) {
@@ -354,32 +402,62 @@ int main(int argc, char** argv) {
             }
         }
         else if (num == "s")
-            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_step");
+            auto acr = vg.asyncCall(channel, callTimeout, "dbg_step");
         else if (num == "i")
-            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_into");
+            auto acr = vg.asyncCall(channel, callTimeout, "dbg_into");
         else if (num == "o")
-            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_out");
+            auto acr = vg.asyncCall(channel, callTimeout, "dbg_out");
         else if (num == "p")
-            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_pause");
+            auto acr = vg.asyncCall(channel, callTimeout, "dbg_pause");
         else if (num == "c")
-            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_continue");
+            auto acr = vg.asyncCall(channel, callTimeout, "dbg_continue");
         else if (num == "q")
-            auto acr = vg.asyncCall("server_def", callTimeout, "dbg_quit");
+            auto acr = vg.asyncCall(channel, callTimeout, "dbg_quit");
+        else if (num == "fs") {
+            auto cr = vg.syncCall(channel, callTimeout, "dbg_get_framestack");
+            if (cr.isSuccess()) {
+                auto frame_stack = cr.obj.get().as<std::vector<std::tuple<std::string, std::string, int>>>();
+                for (auto& frame : frame_stack) {
+                    std::cout << std::get<0>(frame) << " " << std::get<1>(frame) << " " << std::get<2>(frame) << std::endl;
+                }
+            }
+            else {
+                std::cout << "error" << std::endl;
+            }
+        }
+        else if (num == "ef")
+            ef(0);
+        else if (num == "ef1") 
+            ef(1);
+        else if (num == "ef2")
+            ef(2);
+        else if (num == "ef3")
+            ef(3);
+        else if (num == "ef4")
+            ef(4);
+        else if (num == "ef5")
+            ef(5);
+        else if (num == "ef6")
+            ef(6);
+        else if (num == "ef7")
+            ef(7);
+        else if (num == "ef8")
+            ef(8);
         else if (num == "e") {
-            auto acr = vg.asyncCall("server_def", callTimeout, "exit");
+            auto acr = vg.asyncCall(channel, callTimeout, "exit");
             break;
         }
         else
             std::cout << "error cmd" << std::endl;
     }
 
-    //std::shared_ptr<veigar::AsyncCallResult> acr1 = vg.asyncCall("server_def", callTimeout, "dbg_add_breakpoint", "<string>", 3);
-    //std::shared_ptr<veigar::AsyncCallResult> acr2 = vg.asyncCall("server_def", callTimeout, "cmd_run_python_script", any_obj, true);
-    //std::shared_ptr<veigar::AsyncCallResult> acr3 = vg.asyncCall("server_def", callTimeout, "dbg_step");
-    //std::shared_ptr<veigar::AsyncCallResult> acr4 = vg.asyncCall("server_def", callTimeout, "dbg_add_breakpoint", "<string>", 14);
-    //std::shared_ptr<veigar::AsyncCallResult> acr5 = vg.asyncCall("server_def", callTimeout, "dbg_continue");
+    //std::shared_ptr<veigar::AsyncCallResult> acr1 = vg.asyncCall(channel, callTimeout, "dbg_add_breakpoint", "<string>", 3);
+    //std::shared_ptr<veigar::AsyncCallResult> acr2 = vg.asyncCall(channel, callTimeout, "cmd_run_python_script", any_obj, true);
+    //std::shared_ptr<veigar::AsyncCallResult> acr3 = vg.asyncCall(channel, callTimeout, "dbg_step");
+    //std::shared_ptr<veigar::AsyncCallResult> acr4 = vg.asyncCall(channel, callTimeout, "dbg_add_breakpoint", "<string>", 14);
+    //std::shared_ptr<veigar::AsyncCallResult> acr5 = vg.asyncCall(channel, callTimeout, "dbg_continue");
 
-    //if (std::shared_ptr<veigar::AsyncCallResult> acr = vg.asyncCall("server_def", callTimeout, "exit")) {
+    //if (std::shared_ptr<veigar::AsyncCallResult> acr = vg.asyncCall(channel, callTimeout, "exit")) {
     //    if (acr->second.valid()) {
     //        veigar::CallResult cr;
     //        acr->second.wait_for(std::chrono::milliseconds(callTimeout));

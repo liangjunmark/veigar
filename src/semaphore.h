@@ -37,7 +37,9 @@ struct SemaphoreHandle {
 class Semaphore {
    public:
     Semaphore() = default;
-    ~Semaphore() = default;
+    ~Semaphore() {
+        close();
+    }
 
     // The semaphore will be created if it does not already exist.
     // 

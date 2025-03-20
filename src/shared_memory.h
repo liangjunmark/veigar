@@ -43,7 +43,9 @@ class SharedMemory {
         return data_;
     }
 
-    ~SharedMemory() noexcept = default;
+    ~SharedMemory() {
+        close();
+    }
    private:
     bool creator_ = false;
     std::string path_;
